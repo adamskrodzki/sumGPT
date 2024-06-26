@@ -1,0 +1,106 @@
+import math
+from collections import deque
+
+class EMA:
+    def __init__(self, decay):
+        self.decay = decay
+        self.value = None
+
+    def update(self, new_value):
+        if self.value is None:
+            self.value = new_value
+        else:
+            self.value = self.decay * self.value + (1 - self.decay) * new_value
+
+    def get(self):
+        return self.value
+
+class AdaptiveLearningRateScheduler:
+    def __init__(self, max_lr=1e-5, min_lr=None, warmup_steps=100, max_steps=10000, ema_decay=0.9, ema_slow_decay=0.999, increase_factor=1.1, decrease_factor=0.7):
+        self.max_lr = max_lr
+        self.min_lr = min_lr if min_lr is not None else max_lr * 0.9
+        self.warmup_steps = warmup_steps
+        self.max_steps = max_steps
+        self.increase_factor = increase_factor
+        self.decrease_factor = decrease_factor
+
+        self.step = 0
+        self.base_lr_ema = EMA(ema_slow_decay)
+        self.loss_ema = EMA(ema_decay)
+        self.grad_norm_ema = EMA(ema_decay)
+
+        self.loss_history = deque(maxlen=10)
+        self.grad_norm_history = deque(maxlen=10)
+
+        self.boost_factor = 1.0
+
+    def inform(self, loss, grad_norm):
+        self.loss_ema.update(loss)
+        self.grad_norm_ema.update(grad_norm)
+
+        self.loss_history.append(loss)
+        self.grad_norm_history.append(grad_norm)
+
+    def next_step(self):
+        self.step += 1
+        if self.step > self.warmup_steps:
+            self.base_lr_ema.update(self.calculate_base_lr())
+        self.update_boost_factor()
+
+    def get_lr(self):
+        base_lr = self.calculate_base_lr()
+        if self.step > self.warmup_steps:
+            base_lr = self.base_lr_ema.get()
+
+        return base_lr * self.boost_factor
+
+    def calculate_base_lr(self):
+        if self.step < self.warmup_steps:
+            return self.max_lr * (self.step + 1) / self.warmup_steps
+
+        if self.step > self.max_steps:
+            return self.min_lr
+
+        decay_ratio = (self.step - self.warmup_steps) / (self.max_steps - self.warmup_steps)
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff starts at 1 and goes to 0
+
+        return self.min_lr + coeff * (self.max_lr - self.min_lr)
+
+    def update_boost_factor(self):
+        if self.step <= self.warmup_steps:
+            self.boost_factor = 1.0
+            print("to soon for updates")
+            return
+
+        if self.should_increase_boost_factor():
+            self.boost_factor *= self.increase_factor
+            print("Increase conditions satisfied")
+        elif self.should_decrease_boost_factor():
+            self.boost_factor *= self.decrease_factor
+            print("Decrease conditions satisfied")
+
+        print("boost constant")
+        # Ensure boost factor stays within <0.1, 10> range
+        self.boost_factor = max(0.01, min(self.boost_factor, 100))
+
+    def should_increase_boost_factor(self):
+        if len(self.loss_history) < 4:
+            return False
+        
+        # Relative loss improvement
+        loss_improvement = (self.loss_history[-2] - self.loss_history[-1]) / self.loss_history[-1] if self.loss_history[-1] != 0 else 0
+        loss_3_steps_back_improved = self.loss_history[-1] < self.loss_history[-4]
+
+        return (
+            loss_improvement < 0.03 and  # Loss improved less than 1%
+            self.loss_history[-1] < self.loss_ema.get() and  # Loss is smaller than loss_ema
+            max(self.grad_norm_history) < 10 * min(self.grad_norm_history) and  # Grad norm stability
+            loss_3_steps_back_improved  # Loss improved compared to 3 steps back
+        )
+
+    def should_decrease_boost_factor(self):
+        return (
+            self.loss_history[-1] > self.loss_ema.get() or  # Loss is higher than loss_ema
+            max(self.grad_norm_history) > 10 * min(self.grad_norm_history)  # Grad norm instability
+        )

@@ -16,16 +16,17 @@ from character_tokenizer import CharacterTokenizer
 from generators.fixed_sums import FixedSums
 from generators.random_sums import RandomSums
 from torch.utils.tensorboard import SummaryWriter
+from lr_scheduler import AdaptiveLearningRateScheduler
 
-save_id = 22
+save_id = -1
 B = 4*1024 # 4*1024 # micro batch size
 T = 32 # sequence length
 total_batch_size =8 * B*T # usually size of dataset or it's chunk, not applicable here
 seed = 1337
 CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', '_', 'X', 'Y']
 
-max_lr = 1e-5
-min_lr = max_lr * 0.9
+max_lr = 6e-4
+min_lr = max_lr * 0.1
 warmup_steps = 10
 max_steps = 10000 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 
@@ -89,6 +90,7 @@ probabilities = ProbabilityProvider(30, len(s))
 probabilities.set_probabilities(level_1_p)
 formatter = Formatter(tokenizer)
 logger = FileLogger("logs")
+scheduler = AdaptiveLearningRateScheduler(max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999);
 tensorBoard = SummaryWriter()
 
 train_loader = DataLoader(B, T, probabilities, formatter, sets = s)
@@ -240,7 +242,8 @@ for step in range(start_step, max_steps):
         dist.all_reduce(loss_accum, op=dist.ReduceOp.AVG)
     norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     # determine and set the learning rate for this iteration
-    lr = get_lr(step)
+    lr = scheduler.get_lr()
+    tensorBoard.add_scalar("lr", lr, step)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     optimizer.step()
@@ -250,6 +253,8 @@ for step in range(start_step, max_steps):
     dt = t1 - t0 # time difference in seconds
     tokens_processed = train_loader.B * train_loader.T * grad_accum_steps * ddp_world_size
     tokens_per_sec = tokens_processed / dt
+    scheduler.inform(loss_accum, norm)
+    scheduler.next_step()
     if master_process:
         tensorBoard.add_scalar("loss", loss_accum, step)
         tensorBoard.add_scalar("norm", norm, step)
