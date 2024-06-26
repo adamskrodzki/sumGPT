@@ -1,0 +1,5 @@
+**/__pycache__/**
+sumGPT/weights
+sumGPT/runs
+sumGPT/logs
+sumGPT/tries
