@@ -27,7 +27,7 @@ CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', 
 
 max_lr = 6e-4
 min_lr = max_lr * 0.1
-warmup_steps = 10
+warmup_steps = 100
 max_steps = 10000 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 
 
