@@ -17,3 +17,5 @@ where \n is end of generation, X is a character that never occures in training d
 _ is padding character
 
 for simplicity of training each example is paded to 32 characters,
+
+to run training `python train.py` in sumGPT folder
