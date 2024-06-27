@@ -35,11 +35,14 @@ class GenerationTools:
     @staticmethod
     def count_score(examples, answers):
         def remove_whitespaces(s):
-            return re.sub(r'\s+', '', s)
+            return re.sub(r'\s_+', '', s)
         
         # Clean and count occurrences in examples and answers
         cleaned_examples = [remove_whitespaces(example) for example in examples]
         cleaned_answers = [remove_whitespaces(answer) for answer in answers]
+
+        print(cleaned_answers[:5])
+        print(cleaned_examples[:5])
 
         example_counter = Counter(cleaned_examples)
         answer_counter = Counter(cleaned_answers)

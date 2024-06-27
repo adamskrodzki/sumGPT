@@ -58,7 +58,11 @@ class AdaptiveLearningRateScheduler:
     def get_lr(self):
         base_lr = self.calculate_base_lr()
         if self.step > self.warmup_steps:
-            base_lr = self.base_lr_ema.get()
+            base_lr_ema = self.base_lr_ema.get()
+            if base_lr_ema!=None:
+                base_lr = base_lr_ema
+            else:
+                self.base_lr_ema.update(base_lr)
 
         return base_lr * self.boost_factor
 
@@ -73,7 +77,9 @@ class AdaptiveLearningRateScheduler:
         assert 0 <= decay_ratio <= 1
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff starts at 1 and goes to 0
 
-        return self.min_lr + coeff * (self.max_lr - self.min_lr)
+        lr = self.min_lr + coeff * (self.max_lr - self.min_lr)
+        
+        return lr
 
     def update_boost_factor(self):
         if self.step <= self.warmup_steps:
