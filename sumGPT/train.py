@@ -18,8 +18,9 @@ from generators.random_sums import RandomSums
 from torch.utils.tensorboard import SummaryWriter
 from lr_scheduler import AdaptiveLearningRateScheduler
 
-save_id = 1
-B = 4*1024 # 4*1024 # micro batch size
+save_id = -1
+#alues for 1 L4 24 GB
+B = 4*1024 # micro batch size
 T = 32 # sequence length
 total_batch_size =8 * B*T # usually size of dataset or it's chunk, not applicable here
 seed = 1337
@@ -148,8 +149,11 @@ torch.set_float32_matmul_precision('high')
 
 # create model
 model = GPT(GPTConfig(vocab_size=formatter.tokenizer.get_vocab_size(), n_embd=64))
+
 start_step = model.load(save_id, torch.device(device) )+1
-scheduler = AdaptiveLearningRateScheduler(start_step ,max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999);
+print("Start:"+str(start_step))
+
+scheduler = AdaptiveLearningRateScheduler(start_step ,max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999)
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 model.to(device)
 use_compile = True 

@@ -36,6 +36,9 @@ class AdaptiveLearningRateScheduler:
 
         self.boost_factor = 1.0
 
+    def freeze_adjust(status):
+        self.freeze_boost = status
+
     def inform(self, loss, grad_norm):
         # Ensure the loss and grad_norm are moved to the CPU and converted to float
         if isinstance(loss, torch.Tensor):
@@ -82,9 +85,9 @@ class AdaptiveLearningRateScheduler:
         return lr
 
     def update_boost_factor(self):
-        if self.step <= self.warmup_steps:
+        if self.step <= self.warmup_steps or self.freeze_boost:
             self.boost_factor = 1.0
-            print("Too soon for updates")
+            print("boost freezed")
             return
 
         if self.should_increase_boost_factor():
