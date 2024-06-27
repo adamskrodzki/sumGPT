@@ -18,7 +18,7 @@ class EMA:
         return self.value
 
 class AdaptiveLearningRateScheduler:
-    def __init__(self, max_lr=1e-5, min_lr=None, warmup_steps=100, max_steps=10000, ema_decay=0.9, ema_slow_decay=0.999, increase_factor=1.1, decrease_factor=0.7):
+    def __init__(self, start_step=0, max_lr=1e-5, min_lr=None, warmup_steps=100, max_steps=10000, ema_decay=0.9, ema_slow_decay=0.999, increase_factor=1.2, decrease_factor=0.9):
         self.max_lr = max_lr
         self.min_lr = min_lr if min_lr is not None else max_lr * 0.9
         self.warmup_steps = warmup_steps
@@ -26,7 +26,7 @@ class AdaptiveLearningRateScheduler:
         self.increase_factor = increase_factor
         self.decrease_factor = decrease_factor
 
-        self.step = 0
+        self.step = start_step
         self.base_lr_ema = EMA(ema_slow_decay)
         self.loss_ema = EMA(ema_decay)
         self.grad_norm_ema = EMA(ema_decay)
@@ -107,7 +107,7 @@ class AdaptiveLearningRateScheduler:
         return (
             loss_improvement < 0.03 and  # Loss improved less than 3%
             self.loss_history[-1] < self.loss_ema.get() and  # Loss is smaller than loss_ema
-            cv_grad_norm < 0.1 and  # Grad norm stability (low CV)
+            cv_grad_norm < 0.2 and  # Grad norm stability (low CV)
             loss_3_steps_back_improved  # Loss improved compared to 3 steps back
         )
 
@@ -136,10 +136,10 @@ class AdaptiveLearningRateScheduler:
         std_grad_norm = np.std(self.grad_norm_history)
         cv_grad_norm = std_grad_norm / avg_grad_norm
 
-        if cv_grad_norm > 0.2:
+        if cv_grad_norm > 0.3:
             print("Grad norm instability")
 
         return (
-            self.loss_history[-1] > self.loss_ema.get() and  # Loss is higher than loss_ema
-            cv_grad_norm > 0.2  # Grad norm instability (high CV)
+            self.loss_history[-1] > self.loss_ema.get() or  # Loss is higher than loss_ema
+            cv_grad_norm > 0.3  # Grad norm instability (high CV)
         )

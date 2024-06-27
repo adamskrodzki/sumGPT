@@ -18,7 +18,7 @@ from generators.random_sums import RandomSums
 from torch.utils.tensorboard import SummaryWriter
 from lr_scheduler import AdaptiveLearningRateScheduler
 
-save_id = -1
+save_id = 1
 B = 4*1024 # 4*1024 # micro batch size
 T = 32 # sequence length
 total_batch_size =8 * B*T # usually size of dataset or it's chunk, not applicable here
@@ -90,7 +90,6 @@ probabilities = ProbabilityProvider(30, len(s))
 probabilities.set_probabilities(level_1_p)
 formatter = Formatter(tokenizer)
 logger = FileLogger("logs")
-scheduler = AdaptiveLearningRateScheduler(max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999);
 tensorBoard = SummaryWriter()
 
 train_loader = DataLoader(B, T, probabilities, formatter, sets = s)
@@ -150,6 +149,7 @@ torch.set_float32_matmul_precision('high')
 # create model
 model = GPT(GPTConfig(vocab_size=formatter.tokenizer.get_vocab_size(), n_embd=64))
 start_step = model.load(save_id, torch.device(device) )+1
+scheduler = AdaptiveLearningRateScheduler(start_step ,max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999);
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 model.to(device)
 use_compile = True 
