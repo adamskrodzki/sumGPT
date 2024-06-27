@@ -36,7 +36,7 @@ class AdaptiveLearningRateScheduler:
 
         self.boost_factor = 1.0
 
-    def freeze_adjust(status):
+    def freeze_adjust(self, status):
         self.freeze_boost = status
 
     def inform(self, loss, grad_norm):

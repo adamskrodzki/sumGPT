@@ -154,6 +154,7 @@ start_step = model.load(save_id, torch.device(device) )+1
 print("Start:"+str(start_step))
 
 scheduler = AdaptiveLearningRateScheduler(start_step ,max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999)
+scheduler.freeze_adjust(True)
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 model.to(device)
 use_compile = True 
