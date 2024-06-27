@@ -130,7 +130,7 @@ class GPT(nn.Module):
     def load(self, number, map_location = torch.device("cuda")):
         if number == -1:
             self.current_save_id = 0
-            return 1
+            return 0
         load_path = os.path.join('weights', f'model_{number:05d}.pt')
         if not os.path.exists(load_path):
             raise FileNotFoundError(f"No model weights found at {load_path}")
