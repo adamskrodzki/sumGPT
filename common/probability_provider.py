@@ -22,7 +22,7 @@ class ProbabilityProvider:
             
         if non_zero_index > 1:
             fraction = 0.5/(non_zero_index - 1)
-            self.probabilities[:non_zero_index-1]=fraction
+            self.probabilities[:non_zero_index-1]=[fraction] * (non_zero_index - 1)
 
     def sample(self):
         if all(prob == 0 for prob in self.probabilities):

@@ -18,52 +18,53 @@ from generators.random_sums import RandomSums
 from torch.utils.tensorboard import SummaryWriter
 from lr_scheduler import AdaptiveLearningRateScheduler
 
-save_id = -1
+save_id = -1  #if you hae saves in weights folder, put number here
+lock_experimental_lr_adjust = True # if True traditional LR decay schedule used
 #alues for 1 L4 24 GB
-B = 4*1024 # micro batch size
+B = 8*1024 # micro batch size
 T = 32 # sequence length
 total_batch_size =8 * B*T # usually size of dataset or it's chunk, not applicable here
 seed = 1337
 CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', '_', 'X', 'Y']
 
-max_lr = 6e-4
+max_lr = 2e-3
 min_lr = max_lr * 0.1
 warmup_steps = 100
 max_steps = 10000 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 
 
 s = [
-    Set(1000,FixedSums(1,9)),
-    Set(1000,FixedSums(9,1)),
-    Set(1000,FixedSums(1,8)),
-    Set(1000,FixedSums(8,1)),
-    Set(1000,FixedSums(8,2)),
-    Set(1000,FixedSums(2,8)),
-    Set(1000,FixedSums(7,3)),
-    Set(1000,FixedSums(3,7)),
-    Set(1000,FixedSums(5,5)),
-    Set(1000,RandomSums(8)),
-    Set(1000,RandomSums(10)),
-    Set(1000,RandomSums(12)),
-    Set(1000,RandomSums(15)),
-    Set(1000,RandomSums(18)),
+    Set(16*B,FixedSums(1,9)),
+    Set(16*B,FixedSums(9,1)),
+    Set(16*B,FixedSums(1,8)),
+    Set(16*B,FixedSums(8,1)),
+    Set(16*B,FixedSums(8,2)),
+    Set(16*B,FixedSums(2,8)),
+    Set(16*B,FixedSums(7,3)),
+    Set(16*B,FixedSums(3,7)),
+    Set(16*B,FixedSums(5,5)),
+    Set(16*B,RandomSums(8)),
+    Set(16*B,RandomSums(10)),
+    Set(16*B,RandomSums(12)),
+    Set(16*B,RandomSums(15)),
+    Set(16*B,RandomSums(18)),
 ]
 
 s2 = [
-    Set(1000,FixedSums(1,9)),
-    Set(1000,FixedSums(9,1)),
-    Set(1000,FixedSums(1,8)),
-    Set(1000,FixedSums(8,1)),
-    Set(1000,FixedSums(8,2)),
-    Set(1000,FixedSums(2,8)),
-    Set(1000,FixedSums(7,3)),
-    Set(1000,FixedSums(3,7)),
-    Set(1000,FixedSums(5,5)),
-    Set(1000,RandomSums(8)),
-    Set(1000,RandomSums(10)),
-    Set(1000,RandomSums(12)),
-    Set(1000,RandomSums(15)),
-    Set(1000,RandomSums(18)),
+    Set(16*B,FixedSums(1,9)),
+    Set(16*B,FixedSums(9,1)),
+    Set(16*B,FixedSums(1,8)),
+    Set(16*B,FixedSums(8,1)),
+    Set(16*B,FixedSums(8,2)),
+    Set(16*B,FixedSums(2,8)),
+    Set(16*B,FixedSums(7,3)),
+    Set(16*B,FixedSums(3,7)),
+    Set(16*B,FixedSums(5,5)),
+    Set(16*B,RandomSums(8)),
+    Set(16*B,RandomSums(10)),
+    Set(16*B,RandomSums(12)),
+    Set(16*B,RandomSums(15)),
+    Set(16*B,RandomSums(18)),
 ]
 
 level_1_p = [0]*len(s)
@@ -154,7 +155,7 @@ start_step = model.load(save_id, torch.device(device) )+1
 print("Start:"+str(start_step))
 
 scheduler = AdaptiveLearningRateScheduler(start_step ,max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999)
-scheduler.freeze_adjust(True)
+scheduler.freeze_adjust(lock_experimental_lr_adjust)
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 model.to(device)
 use_compile = True 
