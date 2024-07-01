@@ -20,10 +20,10 @@ from generators.fixed_sums10 import FixedSums10
 from torch.utils.tensorboard import SummaryWriter
 from lr_scheduler import AdaptiveLearningRateScheduler
 
-save_id = -1  #if you hae saves in weights folder, put number here
+save_id = 39  #if you hae saves in weights folder, put number here
 lock_experimental_lr_adjust = False # if True traditional LR decay schedule used
 #alues for 1 L4 24 GB
-B = 32#*1024 # micro batch size
+B = 4*1024 # micro batch size
 T = 32 # sequence length
 total_batch_size =4 * B*T # usually size of dataset or it's chunk, not applicable here
 seed = 1337
@@ -36,9 +36,22 @@ max_steps = 10000 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch si
 
 def create_sets():
     sets = []
+    element=[]
+    element.append(Set(16*B,FixedSums(5, 1)))
+    element.append(Set(16*B,FixedSums(1, 5)))
+    sets.append(element)
+    element=[]
+    element.append(Set(16*B,FixedSums(6, 1)))
+    element.append(Set(16*B,FixedSums(1, 6)))
+    sets.append(element)
+    element=[]
+    element.append(Set(16*B,FixedSums(7, 1)))
+    element.append(Set(16*B,FixedSums(1, 7)))
+    sets.append(element)
     element = []
-    element.append(Set(16*B,FixedSums(9, 1)))
-    element.append(Set(16*B,FixedSums(1, 9)))
+    for i in range(4,7):
+        element.append(Set(16*B,FixedSums10(i, 1)))
+        element.append(Set(16*B,FixedSums10(1, i)))
     sets.append(element)
 
     element=[]
@@ -68,11 +81,8 @@ def create_sets():
         sets.append(Set(16*B,RandomSums(i)))
     return sets
 
-print("Before set1")
 s = create_sets()
-print("After set1")
 s2 = create_sets()
-print("After set2")
 
 level_1_p = [0]*len(s)
 level_1_p[0] = 1
@@ -146,7 +156,7 @@ model = GPT(GPTConfig(vocab_size=formatter.tokenizer.get_vocab_size(), n_embd=64
 start_step = model.load(save_id, torch.device(device) )+1
 print("Start:"+str(start_step))
 
-scheduler = AdaptiveLearningRateScheduler(start_step ,max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999)
+scheduler = AdaptiveLearningRateScheduler(start_step ,max_lr, min_lr, warmup_steps, max_steps, 0.9, 0.999, 1.5, 0.5)
 scheduler.freeze_adjust(lock_experimental_lr_adjust)
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 model.to(device)
