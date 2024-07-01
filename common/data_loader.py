@@ -30,15 +30,27 @@ class DataLoader:
 
     def reset(self):
         for i in range(len(self.sets)):
-            self.sets[i].reset();
+            if isinstance(self.sets[i], list):
+                for set_instance in self.sets[i]:
+                    set_instance.reset()
+            else:
+                self.sets[i].reset()
 
     def mask_targets(self, source, target, mask_index=-100):
         mask = [mask_index]*len(target)
-        eq_index = source.index(11)#TODO: do not hardcode here
+        eq_index = source.index(11) # TODO: do not hardcode here
         mask[eq_index:] = target[eq_index:]
-        #mask = [12 if element == 13 else element for element in mask]
         return mask
-        
+
+    def sample_set(self, set_or_array):
+        if isinstance(set_or_array, list):
+            # First, select a set to sample (with equal probability)
+            selected_set = random.choice(set_or_array)
+            # Then sample that set
+            return selected_set.sample()
+        else:
+            return set_or_array.sample()
+
     def next_batch(self):
         B, T = self.B, self.T
         x_batch = []
@@ -47,15 +59,13 @@ class DataLoader:
 
         while len(x_batch) < B:
             idx = self.probs_provider.sample()
-            example = self.sets[idx].sample()
+            example = self.sample_set(self.sets[idx])
             source_examples.append(example)
 
             x_str, y_str = self.formatter.format(self.T, example)
-            #print(x_str)
-            #print(y_str)
             x = self.formatter.tokenize(x_str)
             y = self.formatter.tokenize(y_str)
-            y = self.mask_targets(x,y)
+            y = self.mask_targets(x, y)
             x_batch.append(x)
             y_batch.append(y)
 
