@@ -251,47 +251,19 @@ class AdaptiveLearningRateScheduler2:
         loss_improvement = (self.loss_history[-2] - self.loss_history[-1]) / self.loss_history[-1] if self.loss_history[-1] != 0 else 0
         loss_3_steps_back_improved = self.loss_history[-1] < self.loss_history[-4]
 
-        avg_grad_norm = np.mean(self.grad_norm_history)
-        std_grad_norm = np.std(self.grad_norm_history)
-        cv_grad_norm = std_grad_norm / avg_grad_norm
-
         return (
             loss_improvement < 0.03 and  # Loss improved less than 3%
             self.loss_history[-1] < self.loss_ema.get() and  # Loss is smaller than loss_ema
-            cv_grad_norm < 0.1 and  # Grad norm stability (low CV)
+            self.loss_history[-2] < self.loss_ema.get() and  # Loss is smaller than loss_ema
+            self.loss_history[-3] < self.loss_ema.get() and  # Loss is smaller than loss_ema
             loss_3_steps_back_improved  # Loss improved compared to 3 steps back
         )
 
     def should_decrease_boost_factor(self):
-        # Calculate median and IQR for robust outlier detection
-        if len(self.grad_norm_history) < 4:
-            return False
         
-        grad_norms = np.array(self.grad_norm_history)
-        q1 = np.percentile(grad_norms, 25)
-        q3 = np.percentile(grad_norms, 75)
-        iqr = q3 - q1
-        lower_bound = q1 - 1.5 * iqr
-        upper_bound = q3 + 1.5 * iqr
-
-        # Check if the latest grad_norm is an outlier
-        is_outlier = (self.grad_norm_history[-1] < lower_bound) or (self.grad_norm_history[-1] > upper_bound)
-
-        if self.loss_history[-1] > self.loss_ema.get():
-            print("Loss spike")
-        if is_outlier:
-            print("Ignoring outlier in grad norm")
-            return False
-
-        avg_grad_norm = np.mean(self.grad_norm_history)
-        std_grad_norm = np.std(self.grad_norm_history)
-        cv_grad_norm = std_grad_norm / avg_grad_norm
-
-        high_cv_threshold = 0.3
-        if cv_grad_norm > high_cv_threshold:
-            print("Grad norm instability")
-
+        recent_losses = list(self.loss_history)[-5:]
+        crossed_ema_count = sum(1 for loss in recent_losses if loss > self.loss_ema.get())
         return (
-            self.loss_history[-1] > self.loss_ema.get() or  # Loss is higher than loss_ema
-            cv_grad_norm > high_cv_threshold  # Grad norm instability (high CV)
+            self.loss_history[-1] > self.loss_ema.get() and
+            crossed_ema_count >=2
         )
