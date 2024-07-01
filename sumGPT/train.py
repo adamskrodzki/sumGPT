@@ -16,11 +16,12 @@ from utils import GenerationTools, WeightTracker
 from character_tokenizer import CharacterTokenizer
 from generators.fixed_sums import FixedSums
 from generators.random_sums import RandomSums
+from generators.fixed_sums10 import FixedSums10
 from torch.utils.tensorboard import SummaryWriter
 from lr_scheduler import AdaptiveLearningRateScheduler
 
 save_id = -1  #if you hae saves in weights folder, put number here
-lock_experimental_lr_adjust = True # if True traditional LR decay schedule used
+lock_experimental_lr_adjust = False # if True traditional LR decay schedule used
 #alues for 1 L4 24 GB
 B = 32#*1024 # micro batch size
 T = 32 # sequence length
@@ -30,46 +31,48 @@ CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', 
 
 max_lr = 5e-5
 min_lr = max_lr * 0.1
-warmup_steps = 10
+warmup_steps = 100
 max_steps = 10000 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 
 def create_sets():
     sets = []
     element = []
-    element.append(Set(16*B,FixedSum(9, 1)))
-    element.append(Set(16*B,FixedSum(1, 9)))
+    element.append(Set(16*B,FixedSums(9, 1)))
+    element.append(Set(16*B,FixedSums(1, 9)))
     sets.append(element)
 
     element=[]
     for i in range(5,10):
-        element.append(Set(16*B,FixedSum(i, 1)))
-        element.append(Set(16*B,FixedSum(1, i)))
+        element.append(Set(16*B,FixedSums(i, 1)))
+        element.append(Set(16*B,FixedSums(1, i)))
     sets.append(element)
 
     element=[]
     for i in range(5,10):
-        element.append(Set(16*B,FixedSum10(i, 1)))
-        element.append(Set(16*B,FixedSum10(1, i)))
+        element.append(Set(16*B,FixedSums10(i, 1)))
+        element.append(Set(16*B,FixedSums10(1, i)))
     sets.append(element)
 
     element=[]
     for i in range(5,10):
-        element.append(Set(16*B,FixedSum(i, 2)))
-        element.append(Set(16*B,FixedSum(2, i)))
+        element.append(Set(16*B,FixedSums(i, 2)))
+        element.append(Set(16*B,FixedSums(2, i)))
     sets.append(element)
-
     element=[]
     for i in range(6,10):
-        element.append(Set(16*B,FixedSum(i, 3)))
-        element.append(Set(16*B,FixedSum(3, i)))
+        element.append(Set(16*B,FixedSums(i, 3)))
+        element.append(Set(16*B,FixedSums(3, i)))
     sets.append(element)
 
     for i in range(8,18):
         sets.append(Set(16*B,RandomSums(i)))
     return sets
 
+print("Before set1")
 s = create_sets()
+print("After set1")
 s2 = create_sets()
+print("After set2")
 
 level_1_p = [0]*len(s)
 level_1_p[0] = 1
@@ -251,7 +254,6 @@ for step in range(start_step, max_steps):
     tokens_per_sec = tokens_processed / dt
     tracker.save_state()
     stats, acc = tracker.get_stats()
-    print(f"Change {acc}")
     logger.log_info(f"Change {acc}")
     exec_time = tracker.get_execution_times()[-1]
     print(exec_time)

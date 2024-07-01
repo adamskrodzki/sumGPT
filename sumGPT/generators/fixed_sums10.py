@@ -21,6 +21,10 @@ class FixedSums10:
         else:
             shorter, longer = right_arg, left_arg
         
+        # If shorter is 0, skip the loop and multiplying
+        if shorter == 0:
+            return f"{left_arg}+{right_arg}={left_arg+right_arg}\n"
+        
         # Determine the range of legal powers of 10
         min_power = 1
         max_power = 1
