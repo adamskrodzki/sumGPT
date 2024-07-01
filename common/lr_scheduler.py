@@ -33,6 +33,7 @@ class AdaptiveLearningRateScheduler:
 
         self.loss_history = deque(maxlen=10)
         self.grad_norm_history = deque(maxlen=10)
+        self.std_loss_diff_history = deque(maxlen=100)
 
         self.boost_factor = 1.0
 
@@ -100,58 +101,7 @@ class AdaptiveLearningRateScheduler:
         print("Boost constant")
         # Ensure boost factor stays within <0.1, 10> range
         self.boost_factor = max(0.01, min(self.boost_factor, 100))
-
-    def should_increase_boost_factor(self):
-        if len(self.loss_history) < 4:
-            return False
-
-        # Relative loss improvement
-        loss_improvement = (self.loss_history[-2] - self.loss_history[-1]) / self.loss_history[-1] if self.loss_history[-1] != 0 else 0
-        loss_3_steps_back_improved = self.loss_history[-1] < self.loss_history[-4]
-
-        avg_grad_norm = np.mean(self.grad_norm_history)
-        std_grad_norm = np.std(self.grad_norm_history)
-        cv_grad_norm = std_grad_norm / avg_grad_norm
-
-        return (
-            loss_improvement < 0.03 and  # Loss improved less than 3%, "Do not improve if it's not broken"
-            self.loss_history[-1] < self.loss_ema.get() and  # Loss is smaller than loss_ema
-            cv_grad_norm < 0.2 and  # Grad norm stability (low CV)
-            loss_3_steps_back_improved  # Loss improved compared to 3 steps back
-        )
-
-    def should_decrease_boost_factor(self):
-        # Calculate median and IQR for robust outlier detection
-        if len(self.grad_norm_history) < 4:
-            return False
-        
-        grad_norms = np.array(self.grad_norm_history)
-        q1 = np.percentile(grad_norms, 25)
-        q3 = np.percentile(grad_norms, 75)
-        iqr = q3 - q1
-        lower_bound = q1 - 1.5 * iqr
-        upper_bound = q3 + 1.5 * iqr
-
-        # Check if the latest grad_norm is an outlier
-        is_outlier = (self.grad_norm_history[-1] < lower_bound) or (self.grad_norm_history[-1] > upper_bound)
-
-        if self.loss_history[-1] > self.loss_ema.get():
-            print("Loss spike")
-        if is_outlier:
-            print("Ignoring outlier in grad norm")
-            return False
-
-        avg_grad_norm = np.mean(self.grad_norm_history)
-        std_grad_norm = np.std(self.grad_norm_history)
-        cv_grad_norm = std_grad_norm / avg_grad_norm
-
-        if cv_grad_norm > 0.3:
-            print("Grad norm instability")
-
-        return (
-            self.loss_history[-1] > self.loss_ema.get() or  # Loss is higher than loss_ema
-            cv_grad_norm > 0.3  # Grad norm instability (high CV)
-        )
+        print(f"Current boost factor {self.boost_factor}")
 
     def should_increase_boost_factor(self):
         if len(self.loss_history) < 4:
@@ -163,20 +113,46 @@ class AdaptiveLearningRateScheduler:
 
         return (
             loss_improvement < 0.03 and  # Loss improved less than 3%
-            self.loss_history[-1] < self.loss_ema.get() and  # Loss is smaller than loss_ema
-            self.loss_history[-2] < self.loss_ema.get() and  # Loss is smaller than loss_ema
-            self.loss_history[-3] < self.loss_ema.get() and  # Loss is smaller than loss_ema
-            loss_3_steps_back_improved  # Loss improved compared to 3 steps back
+            loss_3_steps_back_improved and  # Loss improved compared to 3 steps back
+            self.boost_factor < self.compute_max_allowed_boost_factor()  # Boost factor is less than max allowed
         )
 
     def should_decrease_boost_factor(self):
         
-        recent_losses = list(self.loss_history)[-5:]
+        recent_losses = list(self.loss_history)[-10:]
         crossed_ema_count = sum(1 for loss in recent_losses if loss > self.loss_ema.get())
-        return (
-            self.loss_history[-1] > self.loss_ema.get() and
-            crossed_ema_count >=2
-        )
+        return (self.loss_history[-1] > self.loss_ema.get() and
+            crossed_ema_count >= 2) or (
+            self.boost_factor > self.compute_max_allowed_boost_factor())  # Boost factor exceeds max allowed
+    
+    def compute_max_allowed_boost_factor(self):
+        if len(self.loss_history) < 10:
+            return 1.0
+        
+        # Calculate differences between consecutive losses
+        loss_diffs = np.diff(np.array(self.loss_history))
+        
+        # Calculate the standard deviation of the differences
+        std_loss_diff = np.std(loss_diffs)
+
+        # Normalize the standard deviation
+        normalized_std_loss_diff = std_loss_diff / (np.mean(np.abs(loss_diffs)) + 1e-8)
+        self.std_loss_diff_history.append(normalized_std_loss_diff)
+
+        # Calculate the current percentile rank of the normalized standard deviation
+        if len(self.std_loss_diff_history) < 20:
+            return 5  # Not enough history to determine percentiles accurately
+
+        percentile = np.percentile(self.std_loss_diff_history, 95)
+        rank = (np.sum(np.array(self.std_loss_diff_history) <= normalized_std_loss_diff) / len(self.std_loss_diff_history))
+        rank = 1 - rank
+
+        # Scale max_allowed_boost_factor from 1 to 100 based on the percentile rank
+        max_allowed_boost_factor = 1 + rank * 99
+        
+        print(f"Normalized std of loss differences: {normalized_std_loss_diff}, Percentile rank: {rank}, Max allowed boost factor: {max_allowed_boost_factor}")
+        
+        return max_allowed_boost_factor
 
 class EMA:
     def __init__(self, decay):
