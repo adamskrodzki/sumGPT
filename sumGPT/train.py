@@ -1,5 +1,6 @@
 import sys
 import os
+import collections
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'common')))
 import torch
 import torch.nn as nn
@@ -11,7 +12,7 @@ from probability_provider import ProbabilityProvider
 from data_loader import DataLoader, Set
 from logger import FileLogger
 from model import GPT, GPTConfig
-from utils import GenerationTools
+from utils import GenerationTools, WeightTracker
 from character_tokenizer import CharacterTokenizer
 from generators.fixed_sums import FixedSums
 from generators.random_sums import RandomSums
@@ -21,71 +22,59 @@ from lr_scheduler import AdaptiveLearningRateScheduler
 save_id = -1  #if you hae saves in weights folder, put number here
 lock_experimental_lr_adjust = True # if True traditional LR decay schedule used
 #alues for 1 L4 24 GB
-B = 8*1024 # micro batch size
+B = 32#*1024 # micro batch size
 T = 32 # sequence length
-total_batch_size =8 * B*T # usually size of dataset or it's chunk, not applicable here
+total_batch_size =4 * B*T # usually size of dataset or it's chunk, not applicable here
 seed = 1337
 CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', '_', 'X', 'Y']
 
-max_lr = 2e-3
+max_lr = 5e-5
 min_lr = max_lr * 0.1
-warmup_steps = 100
+warmup_steps = 10
 max_steps = 10000 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 
+def create_sets():
+    sets = []
+    element = []
+    element.append(Set(16*B,FixedSum(9, 1)))
+    element.append(Set(16*B,FixedSum(1, 9)))
+    sets.append(element)
 
-s = [
-    Set(16*B,FixedSums(1,9)),
-    Set(16*B,FixedSums(9,1)),
-    Set(16*B,FixedSums(1,8)),
-    Set(16*B,FixedSums(8,1)),
-    Set(16*B,FixedSums(8,2)),
-    Set(16*B,FixedSums(2,8)),
-    Set(16*B,FixedSums(7,3)),
-    Set(16*B,FixedSums(3,7)),
-    Set(16*B,FixedSums(5,5)),
-    Set(16*B,RandomSums(8)),
-    Set(16*B,RandomSums(10)),
-    Set(16*B,RandomSums(12)),
-    Set(16*B,RandomSums(15)),
-    Set(16*B,RandomSums(18)),
-]
+    element=[]
+    for i in range(5,10):
+        element.append(Set(16*B,FixedSum(i, 1)))
+        element.append(Set(16*B,FixedSum(1, i)))
+    sets.append(element)
 
-s2 = [
-    Set(16*B,FixedSums(1,9)),
-    Set(16*B,FixedSums(9,1)),
-    Set(16*B,FixedSums(1,8)),
-    Set(16*B,FixedSums(8,1)),
-    Set(16*B,FixedSums(8,2)),
-    Set(16*B,FixedSums(2,8)),
-    Set(16*B,FixedSums(7,3)),
-    Set(16*B,FixedSums(3,7)),
-    Set(16*B,FixedSums(5,5)),
-    Set(16*B,RandomSums(8)),
-    Set(16*B,RandomSums(10)),
-    Set(16*B,RandomSums(12)),
-    Set(16*B,RandomSums(15)),
-    Set(16*B,RandomSums(18)),
-]
+    element=[]
+    for i in range(5,10):
+        element.append(Set(16*B,FixedSum10(i, 1)))
+        element.append(Set(16*B,FixedSum10(1, i)))
+    sets.append(element)
+
+    element=[]
+    for i in range(5,10):
+        element.append(Set(16*B,FixedSum(i, 2)))
+        element.append(Set(16*B,FixedSum(2, i)))
+    sets.append(element)
+
+    element=[]
+    for i in range(6,10):
+        element.append(Set(16*B,FixedSum(i, 3)))
+        element.append(Set(16*B,FixedSum(3, i)))
+    sets.append(element)
+
+    for i in range(8,18):
+        sets.append(Set(16*B,RandomSums(i)))
+    return sets
+
+s = create_sets()
+s2 = create_sets()
 
 level_1_p = [0]*len(s)
 level_1_p[0] = 1
-level_1_p[1] = 1
+level_1_p[1] = 0
 level_1_p[2] = 0
-
-def get_lr(it):
-    # 1) linear warmup for warmup_iters steps
-    if it < warmup_steps:
-        return max_lr * (it+1) / warmup_steps
-    # 2) if it > lr_decay_iters, return min learning rate
-    if it > max_steps:
-        return min_lr
-    # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
-    assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
-    return min_lr + coeff * (max_lr - min_lr)
-
-
 
 tokenizer = CharacterTokenizer(CHAR_VOCAB)
 probabilities = ProbabilityProvider(30, len(s))
@@ -165,7 +154,8 @@ if use_compile:
 if ddp:
     model = DDP(model, device_ids=[ddp_local_rank])
 raw_model = model.module if ddp else model # always contains the "raw" unwrapped model
-
+tracker = WeightTracker(raw_model)
+tracker.save_state()
 # optimize!
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type=device_type)
 
@@ -259,6 +249,13 @@ for step in range(start_step, max_steps):
     dt = t1 - t0 # time difference in seconds
     tokens_processed = train_loader.B * train_loader.T * grad_accum_steps * ddp_world_size
     tokens_per_sec = tokens_processed / dt
+    tracker.save_state()
+    stats, acc = tracker.get_stats()
+    print(f"Change {acc}")
+    logger.log_info(f"Change {acc}")
+    exec_time = tracker.get_execution_times()[-1]
+    print(exec_time)
+    tensorBoard.add_scalar("direction", acc, step)
     scheduler.inform(loss_accum, norm)
     scheduler.next_step()
     if master_process:

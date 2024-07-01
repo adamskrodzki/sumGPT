@@ -5,6 +5,80 @@ import re
 from torch.nn import functional as F
 from collections import Counter
 
+class WeightTracker:
+    def __init__(self, model: nn.Module, max_states: int = 3):
+        self.model = model
+        self.max_states = max_states
+        self.states = collections.deque(maxlen=max_states)
+        self.diff_matrices = collections.deque(maxlen=max_states - 1)
+        self.stats_deque = collections.deque(maxlen=max_states)
+        self.total_stats = 0.0
+        self.execution_times = []
+
+    def save_state(self):
+        state_dict = {name: param.clone().detach() for name, param in self.model.named_parameters() if param.requires_grad}
+
+        if self.states:
+            prev_state = self.states[-1]
+            diff_dict = {}
+            for name, param in state_dict.items():
+                prev_param = prev_state[name]
+                diff = torch.sign(param - prev_param)
+                diff_dict[name] = diff
+            self.diff_matrices.append(diff_dict)
+
+        self.states.append(state_dict)
+        
+        # Compute stats after saving the state
+        self.compute_stats()
+
+    def compute_stats(self):
+        start_time = time.time()
+        
+        if len(self.diff_matrices) < 2:
+            self.execution_times.append(time.time() - start_time)
+            return
+
+        last_diff = self.diff_matrices[-1]
+        prev_diff = self.diff_matrices[-2]
+
+        stats = []
+        for name in last_diff:
+            diff_product = last_diff[name] * prev_diff[name]
+            sum_diff_product = torch.sum(diff_product).item()
+            sum_abs_diff_product = torch.sum(diff_product.abs()).item()
+            if sum_abs_diff_product == 0:
+                stats.append(0.0)
+            else:
+                stats.append(sum_diff_product / sum_abs_diff_product)
+
+        self.stats_deque.append(stats)
+        
+        # Compute total_stats as scalar multiplication of previous and current stats using PyTorch
+        if len(self.stats_deque) > 1:
+            prev_stats_tensor = torch.tensor(self.stats_deque[-2], dtype=torch.float32)
+            current_stats_tensor = torch.tensor(self.stats_deque[-1], dtype=torch.float32)
+            total_stats_sum = torch.dot(prev_stats_tensor, current_stats_tensor).item()
+            self.total_stats = total_stats_sum / len(current_stats_tensor) if len(current_stats_tensor) > 0 else 0.0
+        else:
+            self.total_stats = 0.0
+
+        end_time = time.time()
+        self.execution_times.append(end_time - start_time)
+
+    def get_stats(self):
+        if self.stats_deque:
+            return self.stats_deque[-1], self.total_stats
+        return [], 0.0
+
+    def get_execution_times(self):
+        return self.execution_times
+
+    def scan_parameters(model):
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                print(f'Parameter: {name}, size:{param.size()}, req grad')
+  
 class GenerationTools:
     def __init__(self, device):
         self.device = device
