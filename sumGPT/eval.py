@@ -6,6 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'c
 
 from character_tokenizer import CharacterTokenizer
 from formatter import Formatter 
+from generators.random_sums import RandomSums
 from generators.fixed_sums import FixedSums
 from utils import GenerationTools
 
@@ -19,7 +20,7 @@ if torch.cuda.is_available():
 elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
     device = "mps"
     
-seed = 233
+seed = 234
 
 
 
@@ -29,19 +30,20 @@ tokenizer = CharacterTokenizer(CHAR_VOCAB)
 formatter = Formatter(tokenizer)
 
 
-model = GPT(GPTConfig(vocab_size=len(CHAR_VOCAB), n_embd=64))
-model.load(66, torch.device(device))
+model = GPT(GPTConfig(vocab_size=len(CHAR_VOCAB), n_embd=512, n_layer=3, n_head=8))
+model.load(24, torch.device(device))
 sample_rng = torch.Generator(device=device)
 sample_rng.manual_seed(seed)
 
 B = 16
-T = 16
+T = 32
 
-gen = FixedSums(3,5)
+gen = RandomSums(12)
+gen2 = FixedSums(5,7)
 
 t = GenerationTools(device)
 
-examples = t.generate_examples(gen, B)
+examples = t.generate_examples(gen2, B)
 
 queries = [example.split('=')[0] + '=' for example in examples]
 
