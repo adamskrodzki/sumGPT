@@ -20,7 +20,7 @@ from generators.fixed_sums10 import FixedSums10
 from torch.utils.tensorboard import SummaryWriter
 from lr_scheduler import AdaptiveLearningRateScheduler
 
-save_id = 39  #if you hae saves in weights folder, put number here
+save_id = -1  #if you hae saves in weights folder, put number here
 lock_experimental_lr_adjust = False # if True traditional LR decay schedule used
 #alues for 1 L4 24 GB
 B = 4*1024 # micro batch size
@@ -77,17 +77,21 @@ def create_sets():
         element.append(Set(16*B,FixedSums(3, i)))
     sets.append(element)
 
-    for i in range(8,18):
-        sets.append(Set(16*B,RandomSums(i)))
+    element=[]
+    for i in range(8,12):
+        element.append(Set(16*B,RandomSums(i)))
+    sets.append(element)
+    element=[]
+    for i in range(12,16):
+        element.append(Set(16*B,RandomSums(i)))
+    sets.append(element)
     return sets
 
 s = create_sets()
 s2 = create_sets()
 
-level_1_p = [0]*len(s)
-level_1_p[0] = 1
-level_1_p[1] = 0
-level_1_p[2] = 0
+level_1_p = [0]*10
+level_1_p[0]=1
 
 tokenizer = CharacterTokenizer(CHAR_VOCAB)
 probabilities = ProbabilityProvider(30, len(s))
@@ -151,7 +155,7 @@ torch.set_float32_matmul_precision('high')
 
 
 # create model
-model = GPT(GPTConfig(vocab_size=formatter.tokenizer.get_vocab_size(), n_embd=64))
+model = GPT(GPTConfig(vocab_size=formatter.tokenizer.get_vocab_size(), n_embd=512, n_layer=3, n_head=8))
 
 start_step = model.load(save_id, torch.device(device) )+1
 print("Start:"+str(start_step))

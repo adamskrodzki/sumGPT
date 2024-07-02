@@ -9,7 +9,7 @@ class ProbabilityProvider:
 
     def set_probabilities(self, new_probabilities):
         if len(new_probabilities) != len(self.probabilities):
-            raise ValueError("New probabilities list must have the same length as the current probabilities list.")
+            raise ValueError(f"New probabilities list must have the same length as the current probabilities list. {len(new_probabilities)}!={len(self.probabilities)}")
         self.probabilities = new_probabilities
 
     def get_probabilities(self):

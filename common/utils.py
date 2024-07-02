@@ -168,7 +168,7 @@ class GenerationTools:
                 query_len = len(queries[i])
                 pos = query_len + generation_count
                 if pos >= 32:
-                    print(f"query_len={query_len}, gen_count={generation_count} queries[{i}]={queries[i]} ")
+                    #print(f"query_len={query_len}, gen_count={generation_count} queries[{i}]={queries[i]} ")
                     continue
                 new_sequence = xgen[i].clone()  # Clone the current sequence to avoid in-place modification
                 new_sequence[pos] = topk_indices[i].item()
