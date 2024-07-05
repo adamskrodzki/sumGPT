@@ -173,6 +173,8 @@ class GenerationTools:
                 new_sequence = xgen[i].clone()  # Clone the current sequence to avoid in-place modification
                 new_sequence[pos] = topk_indices[i].item()
 
+                #print(f"update at index {xgen[i], {new_sequence}, topk_indices[i].item()}")
+
                 if topk_indices[i].item() > 10:
                     new_results.append((new_sequence.tolist(), compound_certainties[i]))
                 else:
@@ -188,6 +190,7 @@ class GenerationTools:
             return xgen, new_queries, new_results, new_compound_certainties
 
         results = []
+        original_queries = queries.copy()
         finished_queries = []
         compound_certainties = [1.0] * B  # Initialize compound certainties to 1
         data = GenerationTools.tokenize(formatter, queries, T)
@@ -211,6 +214,19 @@ class GenerationTools:
                     generation_count+=1
 
         formatted_results = [[formatter.tokenizer.decode(result[0]),result[1]] for result in results]
+        # Assuming the rest of the function is defined as before
+        
+        # Create a dictionary to map the start of each result to its corresponding query
+        query_map = {query: None for query in original_queries}
+        # Populate the dictionary with results that match the start of each query
+        for result in formatted_results:
+            for query in original_queries:
+                if result[0].startswith(query):
+                    query_map[query] = result
+                    break
+        # Reorder formatted_results to match the order of queries
+        formatted_results = [query_map[query] for query in original_queries]
+        
         answers = [item[0] for item in formatted_results]
         probabilities = [item[1] for item in formatted_results]
         return answers, probabilities
