@@ -12,8 +12,19 @@ from utils import GenerationTools
 
 from model import GPT, GPTConfig
 
-device = 'cpu'
+def is_equal(first, second):
+    # Replace all underscores with spaces
+    first = first.replace('_', ' ')
+    second = second.replace('_', ' ')
+    
+    # Remove all whitespace
+    first = ''.join(first.split())
+    second = ''.join(second.split())
+    
+    # Compare the two strings
+    return first == second
 
+device = 'cpu'
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -22,16 +33,13 @@ elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
     
 seed = 234
 
-
-
-
 CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', '_', 'X', 'Y']
 tokenizer = CharacterTokenizer(CHAR_VOCAB)
 formatter = Formatter(tokenizer)
 
-
 model = GPT(GPTConfig(vocab_size=len(CHAR_VOCAB), n_embd=512, n_layer=3, n_head=8))
-model.load(24, torch.device(device))
+step = model.load(41, torch.device(device))
+print(step)
 sample_rng = torch.Generator(device=device)
 sample_rng.manual_seed(seed)
 
@@ -39,9 +47,29 @@ B = 16
 T = 32
 
 gen = RandomSums(12)
-gen2 = FixedSums(5,7)
+gen2 = FixedSums(8,7)
 
 t = GenerationTools(device)
+
+total_count = 0
+total_examples = 0
+for i in range(1,9):
+    for j in range(1,8):
+        correct_count = 0
+        gen2 = FixedSums(i,j)
+        examples = t.generate_examples(gen2, B)
+        queries = [example.split('=')[0] + '=' for example in examples]
+        answers, probabilities = t.generate_answers(model, formatter, B, T, queries)
+        total_examples+=len(answers)
+        for k in range(0,len(answers)):
+            if is_equal(examples[k], answers[k])==True:
+                correct_count+=1
+            else:
+                print(f"Incorrect, expected:{examples[k]} , got:{answers[k]}, query:{queries[k]}")
+        print(f"FixedSums({i},{j}) correctness {float(100*correct_count)/B} %")
+        total_count+=correct_count
+
+print(f"Total correctness = {float(100*total_count)/(total_examples)} %")
 
 examples = t.generate_examples(gen2, B)
 
@@ -49,5 +77,5 @@ queries = [example.split('=')[0] + '=' for example in examples]
 
 answers, probabilities = t.generate_answers(model, formatter, B, T, queries)
 
-print(answers)
-print(probabilities)
+for i in range(0, len(answers)):
+    print(f"{answers[i]} - prob {probabilities[i]}")
