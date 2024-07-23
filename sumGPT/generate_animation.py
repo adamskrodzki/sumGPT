@@ -10,7 +10,7 @@ CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', 
 def logit_to_color(logit):
     prob = math.exp(logit)
     normalized = -255 / (-1 + prob)
-    return plt.cm.Greens(normalized)
+    return plt.cm.Greens(normalized) if prob > 1 else 'blue' if logit > 0 else 'red'
 
 # Read and parse the data
 def parse_data(file_path):
