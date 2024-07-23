@@ -51,26 +51,30 @@ def logit_to_color2(logit):
 def create_frames(queries, logits):
     frames = []
     for i, query in enumerate(queries):
-        fig, ax = plt.subplots()
-        ax.set_title(f'Query: {query}')
-        ax.axis('off')
-        
-        num_rows = len(logits[i])
-        num_cols = len(logits[i][0])
-        
-        ax.set_xlim(0, num_cols)
-        ax.set_ylim(-num_rows, 0)
-        
+        current_query = query
         for j, logit_row in enumerate(logits[i]):
+            fig, ax = plt.subplots()
+            ax.set_title(f'Query: {current_query}')
+            ax.axis('off')
+            
+            num_cols = len(logit_row)
+            
+            ax.set_xlim(0, num_cols)
+            ax.set_ylim(-1, 0)
+            
             for k, logit in enumerate(logit_row):
                 color = logit_to_color(logit)
-                ax.add_patch(plt.Rectangle((k, -j - 1), 1, 1, color=color))
-                ax.text(k + 0.5, -j - 0.5, CHAR_VOCAB[k], ha='center', va='center', fontsize=8)
-        
-        fig.canvas.draw()
-        frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8').reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        frames.append(frame)
-        plt.close(fig)
+                ax.add_patch(plt.Rectangle((k, -1), 1, 1, color=color))
+                ax.text(k + 0.5, -0.5, CHAR_VOCAB[k], ha='center', va='center', fontsize=8)
+            
+            fig.canvas.draw()
+            frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8').reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            frames.append(frame)
+            plt.close(fig)
+            
+            # Append the character corresponding to the logit with the highest probability
+            max_logit_index = np.argmax(logit_row)
+            current_query += CHAR_VOCAB[max_logit_index]
     return frames
 
 # Animate and save frames
