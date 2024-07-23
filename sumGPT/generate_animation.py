@@ -8,6 +8,8 @@ CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', 
 
 # Function to convert logit to color
 def logit_to_color(logit):
+    if logit == 0:
+        return (0.9686274509803922, 0.9882352941176471, 0.9607843137254902, 1.0)
     prob = math.exp(logit)
     normalized = 255 * (1 - math.exp(-prob))
     return plt.cm.Greens(normalized)
