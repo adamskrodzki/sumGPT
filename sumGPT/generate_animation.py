@@ -61,7 +61,7 @@ def create_frames(queries, logits):
             num_cols = len(logit_row)
             
             ax.set_xlim(0, num_cols)
-            ax.set_ylim(-len(all_rows) - 1, 0)
+            ax.set_ylim(-len(all_rows), 1)
             
             for row, logit_row in enumerate(all_rows + [logit_row]):
                 for k, logit in enumerate(logit_row):
