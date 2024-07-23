@@ -13,9 +13,9 @@ def logit_to_color(logit):
     elif logit == 1.0:
         return (0.0, 1.0, 0.0, 1.0)  # Intense Green
     elif logit == 0.000001:
-        return (0.0, 0.1, 0.0, 1.0)  # Very Faint Green
+        return (0.9, 1.0, 0.9, 1.0)  # Very Faint Green
     elif logit == 0.1:
-        return (0.0, 0.9, 0.0, 1.0)  # Vivid Green
+        return (0.1, 1.0, 0.1, 1.0)  # Vivid Green
     elif logit < 1e-10:
         return (1.0, 1.0, 1.0, 1.0)  # White for values smaller than 1e-10
     else:
