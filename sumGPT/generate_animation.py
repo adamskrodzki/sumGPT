@@ -18,23 +18,28 @@ def parse_data(file_path):
     logits = []
     current_query = None
     current_logits = []
-    with open(file_path, 'r') as f:
-        for line in f:
-            if line.startswith('Query:'):
-                if current_query is not None:
-                    queries.append(current_query)
-                    logits.append(current_logits)
-                current_query = line.split('Query: ')[1].strip()
-                diff = current_query.split('=')[-1].strip()
-                current_query = current_query.replace('=', f'{diff}=')
-                current_logits = []
-            elif 'Logit:' in line:
-                data = line.split('Logit: ')[1].split(', Diff:')[0].strip()
-                logit_values = eval(data)
-                current_logits.append(logit_values)
-        if current_query is not None:
-            queries.append(current_query)
-            logits.append(current_logits)
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                if line.startswith('Query:'):
+                    if current_query is not None:
+                        queries.append(current_query)
+                        logits.append(current_logits)
+                    current_query = line.split('Query: ')[1].strip()
+                    diff = current_query.split('=')[-1].strip()
+                    current_query = current_query.replace('=', f'{diff}=')
+                    current_logits = []
+                elif 'Logit:' in line:
+                    data = line.split('Logit: ')[1].split(', Diff:')[0].strip()
+                    logit_values = eval(data)
+                    current_logits.append(logit_values)
+            if current_query is not None:
+                queries.append(current_query)
+                logits.append(current_logits)
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except Exception as e:
+        print(f"Error parsing file: {e}")
     return queries, logits
 import matplotlib.pyplot as plt
 import numpy as np
@@ -82,10 +87,16 @@ def save_animation(frames, file_name, fps=2):
     ani.save(file_name, fps=fps, writer='ffmpeg')
 
 # Main function
+import argparse
+
 def main(file_path, output_file):
     queries, logits = parse_data(file_path)
     frames = create_frames(queries, logits)
     save_animation(frames, output_file)
 
-# Run the main function
-main('visualisation.txt', 'animation.mp4')  # Change to .mp4 for MP4 output
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate animation from logit data.")
+    parser.add_argument("input_file", type=str, help="Path to the input file containing logit data.")
+    parser.add_argument("output_file", type=str, help="Path to the output animation file.")
+    args = parser.parse_args()
+    main(args.input_file, args.output_file)
