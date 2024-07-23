@@ -52,6 +52,7 @@ def create_frames(queries, logits):
     frames = []
     for i, query in enumerate(queries):
         current_query = query
+        all_rows = []
         for j, logit_row in enumerate(logits[i]):
             fig, ax = plt.subplots()
             ax.set_title(f'Query: {current_query}')
@@ -60,12 +61,15 @@ def create_frames(queries, logits):
             num_cols = len(logit_row)
             
             ax.set_xlim(0, num_cols)
-            ax.set_ylim(-1, 0)
+            ax.set_ylim(-len(all_rows) - 1, 0)
             
-            for k, logit in enumerate(logit_row):
-                color = logit_to_color(logit)
-                ax.add_patch(plt.Rectangle((k, -1), 1, 1, color=color))
-                ax.text(k + 0.5, -0.5, CHAR_VOCAB[k], ha='center', va='center', fontsize=8)
+            for row, logit_row in enumerate(all_rows + [logit_row]):
+                for k, logit in enumerate(logit_row):
+                    color = logit_to_color(logit)
+                    ax.add_patch(plt.Rectangle((k, -row - 1), 1, 1, color=color))
+                    ax.text(k + 0.5, -row - 0.5, CHAR_VOCAB[k], ha='center', va='center', fontsize=8)
+            
+            all_rows.append(logit_row)
             
             fig.canvas.draw()
             frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8').reshape(fig.canvas.get_width_height()[::-1] + (3,))
