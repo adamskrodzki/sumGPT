@@ -21,8 +21,8 @@ def logit_to_color(logit):
     else:
         # Adjusted scaling for other values
         scaled_logit = math.log10(logit + 1e-10)
-        normalized = (scaled_logit + 10) / 20  # Adjusted scale to 0-1 range
-        return (0.0, normalized, 0.0, 1.0)  # Green with intensity based on logit
+        normalized = (scaled_logit + 10) / 10  # Adjusted scale to 0-1 range
+        return (1.0-normalized, 1.0, 1.0-normalized, 1.0)  # Green with intensity based on logit
 
 # Read and parse the data
 def parse_data(file_path):
