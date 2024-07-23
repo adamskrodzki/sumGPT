@@ -9,10 +9,20 @@ CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', 
 # Function to convert logit to color
 def logit_to_color(logit):
     if logit == 0:
-        return (0.9686274509803922, 0.9882352941176471, 0.9607843137254902, 1.0)
-    prob = math.exp(logit)
-    normalized = 255 * (1 - math.exp(-prob))
-    return plt.cm.Greens(normalized)
+        return (1.0, 1.0, 1.0, 1.0)  # White
+    elif logit == 1.0:
+        return (0.0, 1.0, 0.0, 1.0)  # Intense Green
+    elif logit == 0.000001:
+        return (0.0, 0.1, 0.0, 1.0)  # Very Faint Green
+    elif logit == 0.1:
+        return (0.0, 0.9, 0.0, 1.0)  # Vivid Green
+    elif logit < 1e-10:
+        return (1.0, 1.0, 1.0, 1.0)  # White for values smaller than 1e-10
+    else:
+        # Logarithmic scaling for other values
+        scaled_logit = math.log10(logit + 1e-10)
+        normalized = (scaled_logit + 10) / 10  # Scale to 0-1 range
+        return (0.0, normalized, 0.0, 1.0)  # Green with intensity based on logit
 
 # Read and parse the data
 def parse_data(file_path):

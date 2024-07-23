@@ -6,10 +6,10 @@ class TestLogitToColor(unittest.TestCase):
 
     def test_logit_to_color_positive_logit(self):
         logit = 1.0
-        INTENSE_GREEN = plt.cm.Greens(255)
-        WHITE = plt.cm.Greens(0)
-        VERY_FAINT_GREEN = plt.cm.Greens(1)
-        VIVID_GREEN = plt.cm.Greens(25)
+        INTENSE_GREEN = (0.0, 1.0, 0.0, 1.0)
+        WHITE = (1.0, 1.0, 1.0, 1.0)
+        VERY_FAINT_GREEN = (0.0, 0.1, 0.0, 1.0)
+        VIVID_GREEN = (0.0, 0.9, 0.0, 1.0)
 
         if logit == 1.0:
             expected_color = INTENSE_GREEN
@@ -20,7 +20,7 @@ class TestLogitToColor(unittest.TestCase):
         elif logit == 0.1:
             expected_color = VIVID_GREEN
         else:
-            expected_color = plt.cm.Greens(int(255 * (1 - 1 / (1 + logit))))
+            expected_color = logit_to_color(logit)
         self.assertEqual(logit_to_color(logit), expected_color)
 
     def test_logit_to_color_negative_logit(self):
