@@ -19,9 +19,9 @@ def logit_to_color(logit):
     elif logit < 1e-10:
         return (1.0, 1.0, 1.0, 1.0)  # White for values smaller than 1e-10
     else:
-        # Logarithmic scaling for other values
+        # Adjusted scaling for other values
         scaled_logit = math.log10(logit + 1e-10)
-        normalized = (scaled_logit + 10) / 10  # Scale to 0-1 range
+        normalized = (scaled_logit + 10) / 20  # Adjusted scale to 0-1 range
         return (0.0, normalized, 0.0, 1.0)  # Green with intensity based on logit
 
 # Read and parse the data
