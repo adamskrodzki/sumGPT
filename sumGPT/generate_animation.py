@@ -61,13 +61,14 @@ def create_frames(queries, logits):
             num_cols = len(logit_row)
             
             ax.set_xlim(0, num_cols)
-            ax.set_ylim(-len(all_rows) - 1, 0)
+            ax.set_ylim(0, len(all_rows)+1)
             
             for row, logit_row in enumerate(all_rows + [logit_row]):
                 for k, logit in enumerate(logit_row):
                     color = logit_to_color(logit)
-                    ax.add_patch(plt.Rectangle((k, -row - 1), 1, 1, color=color))
-                    ax.text(k + 0.5, -row - 0.5, CHAR_VOCAB[k], ha='center', va='center', fontsize=8)
+                    ax.add_patch(plt.Rectangle((k, row), 1, 1, color=color))
+                    ax.text(k + 0.5, row + 0.5, CHAR_VOCAB[k], ha='center', va='center', fontsize=8)
+
             
             all_rows.append(logit_row)
             
