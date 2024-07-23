@@ -3,3 +3,5 @@ sumGPT/weights
 sumGPT/runs
 sumGPT/logs
 sumGPT/tries
+sumGPT/*.mp4
+.aider*

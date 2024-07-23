@@ -2,12 +2,61 @@ import os,sys
 import numpy as np
 import torch
 import re
+import json
 import time
 import torch.nn as nn
 from torch.nn import functional as F
 import collections
 from collections import Counter
 
+CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', '_', 'X', 'Y']
+
+class VisualisationTools:
+
+    def __init__(self):
+        self.query_logits = {}  # Dictionary to store logits for each query
+        self.is_collecting = False
+        self.animation_data = []  # Array to store animation data
+
+    def clean_query(self, query):
+        """
+        Clean up the query by removing all '_' and whitespaces.
+        """
+        return query.replace('_', '').replace(' ', '')
+
+    def inform(self, queries, logits):
+        if not self.is_collecting:
+            return
+        for query, logit in zip(queries, logits):
+            cleaned_query = self.clean_query(query)
+            max_index = logit.argmax().item()
+            diff = CHAR_VOCAB[max_index]
+            if cleaned_query in self.query_logits:
+                self.query_logits[cleaned_query].append((logit.to(torch.float32).cpu().numpy(), diff))
+            else:
+                self.query_logits[cleaned_query] = [(logit.to(torch.float32).cpu().numpy(), diff)]
+
+    def clear(self):
+        self.query_logits = {}
+
+    def save_data(self, filename):
+        with open(filename, 'w') as file:
+            for query, logits in self.animation_data:
+                file.write(f"Query: {query}\n")
+                for logit, diff in logits:
+                    file.write(f"  Logit: {json.dumps(logit.tolist())}, Diff: {diff}\n")
+
+    def set_status(self, is_collecting : bool):
+        self.is_collecting = is_collecting
+
+    def build_animation(self):
+        # Copy the dictionary to an array without removing or joining duplicates
+        for query, logits in self.query_logits.items():
+            self.animation_data.append((query, logits))
+
+    def get_count(self):
+        return len(self.query_logits)
+        
 class WeightTracker:
     def __init__(self, model: nn.Module, max_states: int = 3):
         self.model = model
@@ -73,7 +122,7 @@ class WeightTracker:
         if self.stats_deque:
             return self.stats_deque[-1], self.total_stats
         return [], 0.0
-
+                
     def get_execution_times(self):
         return self.execution_times
 
@@ -83,8 +132,9 @@ class WeightTracker:
                 print(f'Parameter: {name}, size:{param.size()}, req grad')
   
 class GenerationTools:
-    def __init__(self, device):
+    def __init__(self, device, visualizer : VisualisationTools):
         self.device = device
+        self.visualizer = visualizer
 
     @staticmethod
     def print_probs(probs):
@@ -200,10 +250,10 @@ class GenerationTools:
         with torch.no_grad():
             while xgen.size(0) > 0:  # Continue until there are no active sequences
                 with torch.autocast(device_type=self.device, dtype=torch.bfloat16):
-                    #print(xgen)
                     logits, loss = model(xgen)
-                    logits = get_logits_for_position(logits, queries, generation_count)
-                    probs = F.softmax(logits, dim=-1)
+                    logits = get_logits_for_position(logits, queries, generation_count)#B,T
+                    probs = F.softmax(logits, dim=-1)#B,T
+                    self.visualizer.inform(queries, probs)
                     topk_probs, topk_indices = torch.topk(probs, 1, dim=-1)
                     #print(topk_indices)
                     # Update compound certainties
@@ -212,6 +262,9 @@ class GenerationTools:
                     xgen, queries, new_results,compound_certainties  = update_at_index(xgen, queries, generation_count, topk_indices)
                     results = results + new_results
                     generation_count+=1
+
+        self.visualizer.build_animation()
+        self.visualizer.clear()
 
         formatted_results = [[formatter.tokenizer.decode(result[0]),result[1]] for result in results]
         # Assuming the rest of the function is defined as before

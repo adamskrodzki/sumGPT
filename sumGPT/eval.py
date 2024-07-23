@@ -8,7 +8,7 @@ from character_tokenizer import CharacterTokenizer
 from formatter import Formatter 
 from generators.random_sums import RandomSums
 from generators.fixed_sums import FixedSums
-from utils import GenerationTools
+from utils import GenerationTools, VisualisationTools
 
 from model import GPT, GPTConfig
 
@@ -31,7 +31,7 @@ if torch.cuda.is_available():
 elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
     device = "mps"
     
-seed = 234
+seed = 4355
 
 CHAR_VOCAB = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '=', '\n', '_', 'X', 'Y']
 tokenizer = CharacterTokenizer(CHAR_VOCAB)
@@ -49,7 +49,11 @@ T = 32
 gen = RandomSums(12)
 gen2 = FixedSums(8,7)
 
-t = GenerationTools(device)
+visualizer = VisualisationTools()
+
+t = GenerationTools(device, visualizer)
+
+visualizer.set_status(False)
 
 total_count = 0
 total_examples = 0
@@ -57,6 +61,10 @@ for i in range(1,9):
     for j in range(1,8):
         correct_count = 0
         gen2 = FixedSums(i,j)
+        if i==8 and j>=5 and visualizer.get_count()<50:
+            visualizer.set_status(True)
+        else:
+            visualizer.set_status(False)
         examples = t.generate_examples(gen2, B)
         queries = [example.split('=')[0] + '=' for example in examples]
         answers, probabilities = t.generate_answers(model, formatter, B, T, queries)
@@ -70,6 +78,7 @@ for i in range(1,9):
         total_count+=correct_count
 
 print(f"Total correctness = {float(100*total_count)/(total_examples)} %")
+visualizer.save_data("visualisation.txt")
 
 examples = t.generate_examples(gen2, B)
 
