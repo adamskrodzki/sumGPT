@@ -1,4 +1,4 @@
-import os,sys
+import os, sys
 import numpy as np
 import torch
 from torch.nn import functional as F
@@ -43,7 +43,7 @@ print(step)
 sample_rng = torch.Generator(device=device)
 sample_rng.manual_seed(seed)
 
-B = 16
+B = 128
 T = 32
 
 gen = RandomSums(12)
@@ -57,8 +57,10 @@ visualizer.set_status(False)
 
 total_count = 0
 total_examples = 0
-for i in range(1,9):
-    for j in range(1,8):
+correctness_records = []
+
+for i in range(1,10):
+    for j in range(1,10):
         correct_count = 0
         gen2 = FixedSums(i,j)
         if i==8 and j>=5 and visualizer.get_count()<50:
@@ -72,19 +74,30 @@ for i in range(1,9):
         for k in range(0,len(answers)):
             if is_equal(examples[k], answers[k])==True:
                 correct_count+=1
-            else:
-                print(f"Incorrect, expected:{examples[k]} , got:{answers[k]}, query:{queries[k]}")
-        print(f"FixedSums({i},{j}) correctness {float(100*correct_count)/B} %")
+        
+        correctness = float(100 * correct_count) / B
+        correctness_records.append(correctness)
+        print(f"FixedSums({i},{j}) correctness {correctness} %")
         total_count+=correct_count
 
-print(f"Total correctness = {float(100*total_count)/(total_examples)} %")
-visualizer.save_data("visualisation.txt")
+average_correctness = float(100 * total_count) / total_examples
+print(f"Total correctness = {average_correctness} %")
+
+# Calculate weights based on correctness
+weights = []
+for correctness in correctness_records:
+    weight = 5 + 4 * (average_correctness - correctness) / (100 - average_correctness)
+    weight = weight ** 0.2
+    weight = 1 + (weight - 1) * 20
+    weights.append(weight)
+
+print(f"Average correctness: {average_correctness} %")
+print(f"Weights: {weights}")
+
+visualizer.save_data("visualisation2.txt")
 
 examples = t.generate_examples(gen2, B)
 
 queries = [example.split('=')[0] + '=' for example in examples]
 
 answers, probabilities = t.generate_answers(model, formatter, B, T, queries)
-
-for i in range(0, len(answers)):
-    print(f"{answers[i]} - prob {probabilities[i]}")
